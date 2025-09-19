@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "nip55-ios-test",
+    "slug": "nip55-ios-test",
+    "scheme": "nip55-ios-test",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "nip55-ios-test",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start -c",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "doctor": "expo-doctor",
+    "fix": "expo install --fix",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "expo": "~54.0.0",
+    "expo-clipboard": "~8.0.7",
+    "expo-constants": "~18.0.9",
+    "expo-linking": "~8.0.8",
+    "expo-router": "6.0.7",
+    "expo-secure-store": "~15.0.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-get-random-values": "^1.11.0",
+    "react-native-safe-area-context": "~5.6.1",
+    "react-native-screens": "~4.16.0",
+    "snstr": "^0.1.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.13",
+    "expo-doctor": "^1.17.8",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.2"
+  },
+  "packageManager": "pnpm@10.17.0+sha512.fce8a3dd29a4ed2ec566fb53efbb04d8c44a0f05bc6f24a73046910fb9c3ce7afa35a0980500668fa3573345bd644644fa98338fa168235c80f4aa17aa17fbef"
+}
