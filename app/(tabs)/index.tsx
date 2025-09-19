@@ -1,14 +1,10 @@
 import 'react-native-get-random-values';
 import * as SecureStore from 'expo-secure-store';
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, Button } from 'react-native';
-import {
-  encodePrivateKey,
-  encodePublicKey,
-  generateKeypair,
-  getPublicKey,
-  decode,
-} from 'snstr';
+import { View, Text, StyleSheet, TextInput, Button, Alert } from 'react-native';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import { encodePrivateKey, encodePublicKey, generateKeypair, getPublicKey, decode } from 'snstr';
 import { SECURE_KEY } from '@/lib/keys';
 
 type DerivedKeys = {
@@ -33,6 +29,7 @@ function deriveKeys(nsec: string): DerivedKeys {
 }
 
 export default function SignerScreen() {
+  const router = useRouter();
   const [nsecInput, setNsecInput] = React.useState('');
   const [keys, setKeys] = React.useState<DerivedKeys | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -76,7 +73,7 @@ export default function SignerScreen() {
       setNsecInput(value);
       resetFeedback();
     },
-    [resetFeedback],
+    [resetFeedback]
   );
 
   const handleGenerate = React.useCallback(async () => {
@@ -139,10 +136,40 @@ export default function SignerScreen() {
     }
   }, [resetFeedback]);
 
+  const handleTestRequest = React.useCallback(async () => {
+    if (!keys) {
+      Alert.alert('Save a signer first', 'Store an nsec before firing test requests.');
+      return;
+    }
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const eventPayload = encodeURIComponent(
+        JSON.stringify({ kind: 1, content: 'Local NIP-155 test', tags: [], created_at: now })
+      );
+      const success = encodeURIComponent('nip55-ios-test://debug/success');
+      const error = encodeURIComponent('nip55-ios-test://debug/error');
+      const url =
+        `nip55-ios-test://sign_event?type=sign_event&event=${eventPayload}` +
+        `&returnType=event&x-success=${success}&x-error=${error}` +
+        `&current_user=${keys.pubHex}&id=test-${now}`;
+      const canLaunch = await Linking.canOpenURL(url);
+      if (canLaunch) {
+        await Linking.openURL(url);
+      } else {
+        router.push({ pathname: '/sign', params: { u: encodeURIComponent(url) } });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to open test link.';
+      Alert.alert('Test request failed', message);
+    }
+  }, [keys, router]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>SNSTR Signer</Text>
-      <Text style={styles.copy}>Paste an existing nsec or generate a new one, then save it locally.</Text>
+      <Text style={styles.copy}>
+        Paste an existing nsec or generate a new one, then save it locally.
+      </Text>
       <TextInput
         value={nsecInput}
         onChangeText={handleChange}
@@ -159,6 +186,9 @@ export default function SignerScreen() {
       </View>
       <View style={styles.secondaryAction}>
         <Button title="Forget saved signer" onPress={handleForget} disabled={busy || !keys} />
+      </View>
+      <View style={styles.testButton}>
+        <Button title="Test NIP-155 request" onPress={handleTestRequest} disabled={busy} />
       </View>
       {status ? <Text style={styles.status}>{status}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -206,6 +236,9 @@ const styles = StyleSheet.create({
     width: 12,
   },
   secondaryAction: {
+    marginTop: 8,
+  },
+  testButton: {
     marginTop: 8,
   },
   status: {

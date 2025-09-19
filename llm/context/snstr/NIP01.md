@@ -76,7 +76,7 @@ await client.connectToRelays();
 const events = await client.fetchMany(
   [
     { kinds: [1], authors: ['pubkey1'], limit: 10 },
-    { kinds: [0], authors: ['pubkey1'] } // Profile metadata
+    { kinds: [0], authors: ['pubkey1'] }, // Profile metadata
   ],
   { maxWait: 5000 } // Maximum wait time in milliseconds
 );
@@ -84,10 +84,9 @@ const events = await client.fetchMany(
 console.log(`Retrieved ${events.length} events`);
 
 // Fetch the most recent single event matching filters
-const latestEvent = await client.fetchOne(
-  [{ kinds: [1], authors: ['pubkey1'] }],
-  { maxWait: 3000 }
-);
+const latestEvent = await client.fetchOne([{ kinds: [1], authors: ['pubkey1'] }], {
+  maxWait: 3000,
+});
 
 if (latestEvent) {
   console.log('Latest event:', latestEvent.content);
@@ -113,12 +112,38 @@ const event = createEvent({
   kind: 1,
   content: 'Hello, world!',
   tags: [['p', 'pubkeyHex', 'recommended relay URL']],
-  privateKey: 'privateKeyHex'
+  privateKey: 'privateKeyHex',
 });
 
 // Verify an event
 const isValid = await validateEvent(event);
 ```
+
+## Signing Quickstart (Mobile)
+
+When used as a mobile signer (see NIP-155), SNSTR can sign arbitrary events passed via deep links:
+
+```typescript
+import { createEvent, decode } from 'snstr';
+
+// Convert stored nsec to private key hex
+const privHex = (() => {
+  const d = decode(nsec as `${string}1${string}`);
+  if (d.type !== 'nsec' || typeof d.data !== 'string') throw new Error('bad nsec');
+  return d.data;
+})();
+
+// Build and sign
+const signed = createEvent({
+  kind: 1,
+  content: 'hello from mobile signer',
+  tags: [],
+  created_at: Math.floor(Date.now() / 1000),
+  privateKey: privHex,
+});
+```
+
+Wire this into a NIP-155 handler to approve `sign_event` requests.
 
 ## Implementation Details
 
@@ -165,11 +190,7 @@ import { RelayPool } from 'snstr/nip01/relayPool';
 import { createEvent } from 'snstr';
 
 // Initialize with multiple relays
-const pool = new RelayPool([
-  'wss://relay.nostr.band',
-  'wss://nos.lol',
-  'wss://relay.damus.io'
-]);
+const pool = new RelayPool(['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io']);
 
 // Add additional relays dynamically
 pool.addRelay('wss://relay.snort.social');
@@ -179,7 +200,7 @@ const event = createEvent({
   kind: 1,
   content: 'Hello from RelayPool!',
   tags: [],
-  privateKey: 'your-private-key'
+  privateKey: 'your-private-key',
 });
 
 const publishPromises = pool.publish(['wss://relay.nostr.band', 'wss://nos.lol'], event);
@@ -221,23 +242,20 @@ await pool.close();
 import { RelayPool, RemoveRelayResult } from 'snstr/nip01/relayPool';
 
 // Initialize with connection options
-const pool = new RelayPool(
-  ['wss://relay.nostr.band'],
-  {
-    relayOptions: {
-      connectionTimeout: 10000,
-      autoReconnect: true,
-      maxReconnectAttempts: 5,
-      maxReconnectDelay: 30000,
-      bufferFlushDelay: 1000
-    }
-  }
-);
+const pool = new RelayPool(['wss://relay.nostr.band'], {
+  relayOptions: {
+    connectionTimeout: 10000,
+    autoReconnect: true,
+    maxReconnectAttempts: 5,
+    maxReconnectDelay: 30000,
+    bufferFlushDelay: 1000,
+  },
+});
 
 // Add relay with specific options
 const relay = pool.addRelay('wss://nos.lol', {
   connectionTimeout: 5000,
-  autoReconnect: false
+  autoReconnect: false,
 });
 
 // Ensure relay connection
@@ -269,7 +287,7 @@ import { RelayPool } from 'snstr/nip01/relayPool';
 const pool = new RelayPool([
   'wss://relay.nostr.band',
   'wss://invalid-relay.com', // This will fail gracefully
-  'wss://nos.lol'
+  'wss://nos.lol',
 ]);
 
 // Subscribe with error handling
@@ -304,13 +322,15 @@ await pool.close();
 #### RelayPool vs Direct Relay Usage
 
 Use RelayPool when you need:
+
 - **Multi-relay operations**: Publishing or querying across multiple relays
-- **Automatic failover**: Resilience against individual relay failures  
+- **Automatic failover**: Resilience against individual relay failures
 - **Dynamic relay management**: Adding/removing relays at runtime
 - **Batch operations**: Efficient handling of multiple relay connections
 - **Resource management**: Automatic cleanup and connection pooling
 
 Use direct Relay class when you need:
+
 - **Single relay focus**: Working with one specific relay
 - **Fine-grained control**: Detailed control over individual relay behavior
 - **Custom connection handling**: Specific reconnection or error handling logic
@@ -322,7 +342,7 @@ SNSTR includes built-in rate limiting to prevent abuse and DoS attacks on Nostr 
 ### Default Rate Limits
 
 - **Subscriptions**: 50 per minute
-- **Publishes**: 100 per minute  
+- **Publishes**: 100 per minute
 - **Fetches**: 200 per minute
 
 ### Configuring Rate Limits
@@ -335,9 +355,9 @@ import { Nostr, NostrOptions } from 'snstr';
 const options: NostrOptions = {
   rateLimits: {
     subscribe: { limit: 100, windowMs: 60000 }, // 100 subscriptions per minute
-    publish: { limit: 200, windowMs: 60000 },   // 200 publishes per minute
-    fetch: { limit: 500, windowMs: 60000 }      // 500 fetches per minute
-  }
+    publish: { limit: 200, windowMs: 60000 }, // 200 publishes per minute
+    fetch: { limit: 500, windowMs: 60000 }, // 500 fetches per minute
+  },
 };
 
 const client = new Nostr(['wss://relay.nostr.band'], options);
@@ -350,9 +370,9 @@ You can configure only specific limits; unspecified limits will use defaults:
 ```typescript
 const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
-    subscribe: { limit: 200, windowMs: 30000 } // Only configure subscriptions
+    subscribe: { limit: 200, windowMs: 30000 }, // Only configure subscriptions
     // publish and fetch will use default limits
-  }
+  },
 });
 ```
 
@@ -363,10 +383,10 @@ Adjust the time window for different use cases:
 ```typescript
 const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
-    subscribe: { limit: 10, windowMs: 5000 },   // 10 per 5 seconds
-    publish: { limit: 50, windowMs: 30000 },    // 50 per 30 seconds
-    fetch: { limit: 100, windowMs: 10000 }      // 100 per 10 seconds
-  }
+    subscribe: { limit: 10, windowMs: 5000 }, // 10 per 5 seconds
+    publish: { limit: 50, windowMs: 30000 }, // 50 per 30 seconds
+    fetch: { limit: 100, windowMs: 10000 }, // 100 per 10 seconds
+  },
 });
 ```
 
@@ -386,12 +406,12 @@ console.log('Current rate limits:', currentLimits);
 // Update specific limits
 client.updateRateLimits({
   subscribe: { limit: 300, windowMs: 60000 },
-  fetch: { limit: 1000, windowMs: 120000 }
+  fetch: { limit: 1000, windowMs: 120000 },
 });
 
 // Partial updates are supported
 client.updateRateLimits({
-  publish: { limit: 150, windowMs: 45000 }
+  publish: { limit: 150, windowMs: 45000 },
 });
 ```
 
@@ -413,8 +433,8 @@ import { Nostr } from 'snstr';
 
 const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
-    subscribe: { limit: 1, windowMs: 60000 } // Very restrictive for demo
-  }
+    subscribe: { limit: 1, windowMs: 60000 }, // Very restrictive for demo
+  },
 });
 
 await client.connectToRelays();
@@ -424,7 +444,7 @@ try {
   client.subscribe([{ kinds: [1], limit: 10 }], (event) => {
     console.log('Event:', event);
   });
-  
+
   // Second subscription will be rate limited
   client.subscribe([{ kinds: [1], limit: 10 }], (event) => {
     console.log('Event:', event);
@@ -448,8 +468,8 @@ const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
     subscribe: { limit: 500, windowMs: 60000 },
     publish: { limit: 300, windowMs: 60000 },
-    fetch: { limit: 1000, windowMs: 60000 }
-  }
+    fetch: { limit: 1000, windowMs: 60000 },
+  },
 });
 ```
 
@@ -462,8 +482,8 @@ const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
     subscribe: { limit: 20, windowMs: 60000 },
     publish: { limit: 30, windowMs: 60000 },
-    fetch: { limit: 50, windowMs: 60000 }
-  }
+    fetch: { limit: 50, windowMs: 60000 },
+  },
 });
 ```
 
@@ -476,8 +496,8 @@ const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
     subscribe: { limit: 1000, windowMs: 60000 },
     publish: { limit: 1000, windowMs: 60000 },
-    fetch: { limit: 2000, windowMs: 60000 }
-  }
+    fetch: { limit: 2000, windowMs: 60000 },
+  },
 });
 ```
 
@@ -488,14 +508,11 @@ RelayPool uses the same rate limiting mechanism, applied per operation across al
 ```typescript
 import { RelayPool } from 'snstr/nip01/relayPool';
 
-const pool = new RelayPool(
-  ['wss://relay.nostr.band', 'wss://nos.lol'],
-  {
-    rateLimits: {
-      subscribe: { limit: 100, windowMs: 60000 }
-    }
-  }
-);
+const pool = new RelayPool(['wss://relay.nostr.band', 'wss://nos.lol'], {
+  rateLimits: {
+    subscribe: { limit: 100, windowMs: 60000 },
+  },
+});
 
 // Rate limits apply to the total operations across all relays
 await pool.subscribe(
@@ -558,18 +575,21 @@ const client = new Nostr(['wss://relay.nostr.band']);
 await client.connectToRelays();
 
 // Complex filtering
-const subIds = client.subscribe([
-  { 
-    kinds: [1], 
-    authors: ['pubkey1', 'pubkey2'],
-    since: Math.floor(Date.now() / 1000) - 86400, // Last 24 hours
-    limit: 50
-  },
-  {
-    kinds: [3], // Contact lists
-    authors: ['pubkey1']
+const subIds = client.subscribe(
+  [
+    {
+      kinds: [1],
+      authors: ['pubkey1', 'pubkey2'],
+      since: Math.floor(Date.now() / 1000) - 86400, // Last 24 hours
+      limit: 50,
+    },
+    {
+      kinds: [3], // Contact lists
+      authors: ['pubkey1'],
+    },
+  ],
+  (event) => {
+    console.log('Received event:', event);
   }
-], (event) => {
-  console.log('Received event:', event);
-});
-``` 
+);
+```

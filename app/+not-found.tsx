@@ -6,7 +6,9 @@ export default function NotFoundScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>404</Text>
       <Text style={styles.subtitle}>This screen doesn’t exist.</Text>
-      <Link href="/" style={styles.link}>Go to home</Link>
+      <Link href="/" style={styles.link}>
+        Go to home
+      </Link>
     </View>
   );
 }
@@ -32,4 +34,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

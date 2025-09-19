@@ -16,7 +16,9 @@ export default function SettingsScreen() {
       <View style={{ height: 12 }} />
       <Button title="Reset signer" onPress={onResetSigner} />
       <View style={{ height: 8 }} />
-      <Link href="/(tabs)" style={styles.link}>Back to Home</Link>
+      <Link href="/(tabs)" style={styles.link}>
+        Back to Home
+      </Link>
     </View>
   );
 }
@@ -39,5 +41,5 @@ const styles = StyleSheet.create({
   link: {
     color: '#3b82f6',
     fontWeight: '600',
-  }
+  },
 });

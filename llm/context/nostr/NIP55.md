@@ -1,8 +1,6 @@
-NIP-55
-======
+# NIP-55
 
-Android Signer Application
---------------------------
+## Android Signer Application
 
 `draft` `optional`
 
@@ -128,6 +126,7 @@ launcher.launch(intent)
     intent.putExtra("permissions", permissions.toJson())
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved the intent it will return the **pubkey** in the result field and the signer packageName in the **package** field
 
@@ -151,6 +150,7 @@ launcher.launch(intent)
 
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **result**, **id** and **event** fields
 
@@ -177,6 +177,7 @@ launcher.launch(intent)
 
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **result** and **id** fields
 
@@ -202,6 +203,7 @@ launcher.launch(intent)
 
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **signature** and **id** fields
 
@@ -227,6 +229,7 @@ launcher.launch(intent)
 
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **result** and **id** fields
 
@@ -252,6 +255,7 @@ launcher.launch(intent)
 
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **result** and **id** fields
 
@@ -274,6 +278,7 @@ launcher.launch(intent)
     intent.putExtra("current_user", account.keyPair.pubkey)
     context.startActivity(intent)
     ```
+
   - result:
     - If the user approved intent it will return the **result** and **id** fields
 
@@ -309,6 +314,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **pubkey** in the result column
 
@@ -336,6 +342,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** and the **event** columns
 
@@ -364,6 +371,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** column
 
@@ -390,6 +398,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** column
 
@@ -416,6 +425,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** column
 
@@ -442,6 +452,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** column
 
@@ -468,6 +479,7 @@ If the user chose to always reject the event, signer application will return the
         null
     )
     ```
+
   - result:
     - Will return the **result** column
 

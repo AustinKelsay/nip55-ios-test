@@ -73,7 +73,7 @@ import { encodeProfile, decodeProfile, filterProfile } from 'snstr';
 // Create a profile with relays
 const profileData = {
   pubkey: '3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d',
-  relays: ['wss://relay.example.com', 'wss://relay2.example.com']
+  relays: ['wss://relay.example.com', 'wss://relay2.example.com'],
 };
 
 // Encode the profile data
@@ -102,7 +102,7 @@ const eventData = {
   id: '3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d',
   relays: ['wss://relay.example.com'],
   author: 'pubkey_here',
-  kind: 1
+  kind: 1,
 };
 
 // Encode the event data
@@ -126,7 +126,7 @@ const addressData = {
   identifier: 'profile',
   pubkey: '3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d',
   kind: 30023,
-  relays: ['wss://relay.example.com']
+  relays: ['wss://relay.example.com'],
 };
 
 // Encode the address data
@@ -187,7 +187,7 @@ The SNSTR implementation includes several security enhancements:
    - Maximum identifier length: 1024 characters
    - Default bech32 data limit: 5000 bytes
 
-2. **URL Validation During Encoding**: 
+2. **URL Validation During Encoding**:
    - Enforces `wss://` or `ws://` protocol
    - Rejects URLs with credentials (username/password)
    - Validates URL structure
@@ -197,12 +197,12 @@ The SNSTR implementation includes several security enhancements:
 The library provides built-in functions to help filter potentially malicious data:
 
 ```typescript
-import { 
-  isValidRelayUrl,   // Check a single URL
-  filterProfile,     // Filter nprofile entities
-  filterEvent,       // Filter nevent entities
-  filterAddress,     // Filter naddr entities
-  filterEntity       // Generic filter for any entity type
+import {
+  isValidRelayUrl, // Check a single URL
+  filterProfile, // Filter nprofile entities
+  filterEvent, // Filter nevent entities
+  filterAddress, // Filter naddr entities
+  filterEntity, // Generic filter for any entity type
 } from 'snstr';
 
 // Step 1: Decode the entity
@@ -227,17 +227,17 @@ import { decode, filterEntity } from 'snstr';
 function safelyDecodeEntity(bech32Str) {
   try {
     const result = decode(bech32Str);
-    
+
     // Simple types don't need filtering
     if (['npub', 'nsec', 'note'].includes(result.type)) {
       return result.data;
     }
-    
+
     // Complex types need filtering
     if (['nprofile', 'nevent', 'naddr'].includes(result.type)) {
       return filterEntity(result.data);
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error decoding entity:', error);
@@ -249,7 +249,7 @@ function safelyDecodeEntity(bech32Str) {
 const safeEntity = safelyDecodeEntity(bech32String);
 ```
 
-For a complete example, see [nip19-security.ts](../../examples/nip19/nip19-security.ts). 
+For a complete example, see [nip19-security.ts](../../examples/nip19/nip19-security.ts).
 
 ## TypeScript Types
 
@@ -298,13 +298,13 @@ interface AddressData {
 
 ```typescript
 // Union type for all possible decoded entity types
-type DecodedEntity = 
-  | { type: "npub"; data: HexString }
-  | { type: "nsec"; data: HexString }
-  | { type: "note"; data: HexString }
-  | { type: "nprofile"; data: ProfileData }
-  | { type: "nevent"; data: EventData }
-  | { type: "naddr"; data: AddressData };
+type DecodedEntity =
+  | { type: 'npub'; data: HexString }
+  | { type: 'nsec'; data: HexString }
+  | { type: 'note'; data: HexString }
+  | { type: 'nprofile'; data: ProfileData }
+  | { type: 'nevent'; data: EventData }
+  | { type: 'naddr'; data: AddressData };
 ```
 
 ### TLV Types
@@ -319,9 +319,9 @@ interface TLVEntry {
 // TLV types enum
 enum TLVType {
   Special = 0, // Depends on prefix: pubkey for nprofile, event id for nevent, identifier (d tag) for naddr
-  Relay = 1,   // Optional relay URL where the entity might be found
-  Author = 2,  // Author pubkey (for naddr, required; for nevent, optional)
-  Kind = 3,    // Event kind (for naddr, required; for nevent, optional)
+  Relay = 1, // Optional relay URL where the entity might be found
+  Author = 2, // Author pubkey (for naddr, required; for nevent, optional)
+  Kind = 3, // Event kind (for naddr, required; for nevent, optional)
 }
 ```
 
@@ -334,4 +334,4 @@ The typing system ensures that:
 3. Security functions like `filterProfile`, `filterEvent`, and `filterAddress` preserve types
 4. The universal `decode` function returns a discriminated union of all possible entity types
 
-These types make it easier to work with NIP-19 entities in TypeScript by providing autocompletion and type checking. 
+These types make it easier to work with NIP-19 entities in TypeScript by providing autocompletion and type checking.

@@ -8,13 +8,13 @@
 
 SNSTR is a secure, lightweight TypeScript library for interacting with the Nostr protocol. It provides a simple, easy-to-use API with minimal dependencies.
 
-*SNSTR is fierce. Fierce in its speed, in its flexibility, and most of all its security.*
+_SNSTR is fierce. Fierce in its speed, in its flexibility, and most of all its security._
 
-*SNSTR is steadfast, ever persistent, watching, waiting.*
+_SNSTR is steadfast, ever persistent, watching, waiting._
 
-*SNSTR has vengeance on its mind.*
+_SNSTR has vengeance on its mind._
 
-*SNSTR is a Nostr Development Kit for people that go swimming in jeans*
+_SNSTR is a Nostr Development Kit for people that go swimming in jeans_
 
 **⚠️ Important**: This library is in beta testing. While mostly stable, some features may still undergo changes. We encourage users to test thoroughly and report any issues or unexpected behavior.
 
@@ -104,11 +104,11 @@ npm run build
 ## Basic Usage
 
 ```typescript
-import { Nostr, RelayEvent } from "snstr";
+import { Nostr, RelayEvent } from 'snstr';
 
 async function main() {
   // Initialize with relays and connection timeout
-  const client = new Nostr(["wss://relay.nostr.band"]);
+  const client = new Nostr(['wss://relay.nostr.band']);
 
   // Generate keypair
   const keys = await client.generateKeys();
@@ -122,7 +122,7 @@ async function main() {
   });
 
   // Publish a note
-  const note = await client.publishTextNote("Hello, Nostr!");
+  const note = await client.publishTextNote('Hello, Nostr!');
   console.log(`Published note with ID: ${note?.id}`);
 
   // Subscribe to events
@@ -132,23 +132,21 @@ async function main() {
       console.log(`Received event from ${relay}:`, event);
     },
     undefined,
-    { autoClose: true, eoseTimeout: 5000 },
+    { autoClose: true, eoseTimeout: 5000 }
   );
 
   // Query events from all relays
-  const manyEvents = await client.fetchMany(
-    [{ kinds: [1], authors: ["pubkey"], limit: 10 }],
-    { maxWait: 5000 }
-  );
+  const manyEvents = await client.fetchMany([{ kinds: [1], authors: ['pubkey'], limit: 10 }], {
+    maxWait: 5000,
+  });
   console.log(`Found ${manyEvents.length} events`);
 
   // Get the most recent event from all relays
-  const latestEvent = await client.fetchOne(
-    [{ kinds: [1], authors: ["pubkey"] }],
-    { maxWait: 3000 }
-  );
+  const latestEvent = await client.fetchOne([{ kinds: [1], authors: ['pubkey'] }], {
+    maxWait: 3000,
+  });
   if (latestEvent) {
-    console.log("Latest event:", latestEvent.content);
+    console.log('Latest event:', latestEvent.content);
   }
 
   // Cleanup
@@ -166,14 +164,14 @@ main().catch(console.error);
 SNSTR includes built-in rate limiting to prevent abuse. Configure custom limits when creating a client:
 
 ```typescript
-import { Nostr } from "snstr";
+import { Nostr } from 'snstr';
 
-const client = new Nostr(["wss://relay.nostr.band"], {
+const client = new Nostr(['wss://relay.nostr.band'], {
   rateLimits: {
     subscribe: { limit: 100, windowMs: 60000 }, // 100 per minute (default: 50)
-    publish: { limit: 200, windowMs: 60000 },   // 200 per minute (default: 100)
-    fetch: { limit: 500, windowMs: 60000 }      // 500 per minute (default: 200)
-  }
+    publish: { limit: 200, windowMs: 60000 }, // 200 per minute (default: 100)
+    fetch: { limit: 500, windowMs: 60000 }, // 500 per minute (default: 200)
+  },
 });
 
 // Update limits dynamically
@@ -185,15 +183,11 @@ See [NIP-01 documentation](src/nip01/README.md#rate-limiting) for detailed confi
 ### Using RelayPool for Multi-Relay Management
 
 ```typescript
-import { RelayPool, generateKeys, createEvent } from "snstr";
+import { RelayPool, generateKeys, createEvent } from 'snstr';
 
 async function relayPoolExample() {
   // Initialize RelayPool with multiple relays
-  const pool = new RelayPool([
-    "wss://relay.nostr.band",
-    "wss://nos.lol", 
-    "wss://relay.damus.io"
-  ]);
+  const pool = new RelayPool(['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io']);
 
   // Generate keypair
   const keys = await generateKeys();
@@ -201,32 +195,29 @@ async function relayPoolExample() {
   // Publish to multiple relays simultaneously
   const event = createEvent({
     kind: 1,
-    content: "Hello from RelayPool!",
+    content: 'Hello from RelayPool!',
     tags: [],
-    privateKey: keys.privateKey
+    privateKey: keys.privateKey,
   });
 
-  const publishPromises = pool.publish(
-    ["wss://relay.nostr.band", "wss://nos.lol"], 
-    event
-  );
+  const publishPromises = pool.publish(['wss://relay.nostr.band', 'wss://nos.lol'], event);
   const results = await Promise.all(publishPromises);
 
   // Subscribe across multiple relays with automatic failover
   const subscription = await pool.subscribe(
-    ["wss://relay.nostr.band", "wss://nos.lol", "wss://relay.damus.io"],
+    ['wss://relay.nostr.band', 'wss://nos.lol', 'wss://relay.damus.io'],
     [{ kinds: [1], limit: 10 }],
     (event, relayUrl) => {
       console.log(`Event from ${relayUrl}:`, event.content);
     },
     () => {
-      console.log("All relays finished sending stored events");
+      console.log('All relays finished sending stored events');
     }
   );
 
   // Query events synchronously from multiple relays
   const events = await pool.querySync(
-    ["wss://relay.nostr.band", "wss://nos.lol"],
+    ['wss://relay.nostr.band', 'wss://nos.lol'],
     { kinds: [1], limit: 5 },
     { timeout: 10000 }
   );
@@ -243,31 +234,30 @@ relayPoolExample().catch(console.error);
 ### Event Querying with fetchMany and fetchOne
 
 ```typescript
-import { Nostr } from "snstr";
+import { Nostr } from 'snstr';
 
 async function queryExample() {
-  const client = new Nostr(["wss://relay.nostr.band", "wss://nos.lol"]);
+  const client = new Nostr(['wss://relay.nostr.band', 'wss://nos.lol']);
   await client.connectToRelays();
 
   // Fetch multiple events from all connected relays
   const events = await client.fetchMany(
     [
-      { kinds: [1], authors: ["pubkey1", "pubkey2"], limit: 20 },
-      { kinds: [0], authors: ["pubkey1"] } // Profile metadata
+      { kinds: [1], authors: ['pubkey1', 'pubkey2'], limit: 20 },
+      { kinds: [0], authors: ['pubkey1'] }, // Profile metadata
     ],
     { maxWait: 5000 } // Wait up to 5 seconds
   );
-  
+
   console.log(`Retrieved ${events.length} events from all relays`);
-  
+
   // Fetch the most recent single event
-  const latestNote = await client.fetchOne(
-    [{ kinds: [1], authors: ["pubkey1"] }],
-    { maxWait: 3000 }
-  );
-  
+  const latestNote = await client.fetchOne([{ kinds: [1], authors: ['pubkey1'] }], {
+    maxWait: 3000,
+  });
+
   if (latestNote) {
-    console.log("Latest note:", latestNote.content);
+    console.log('Latest note:', latestNote.content);
   }
 
   client.disconnectFromRelays();
@@ -283,8 +273,8 @@ For more examples including encryption, relay management, and NIP-specific featu
 SNSTR relies on `websocket-polyfill` when running in Node.js. If you want to provide your own `WebSocket` class (for example when using a different runtime), you can set it with `useWebSocketImplementation`:
 
 ```typescript
-import { useWebSocketImplementation } from "snstr";
-import WS from "isomorphic-ws";
+import { useWebSocketImplementation } from 'snstr';
+import WS from 'isomorphic-ws';
 
 useWebSocketImplementation(WS);
 ```
@@ -292,7 +282,7 @@ useWebSocketImplementation(WS);
 You can also reset back to the default implementation:
 
 ```typescript
-import { resetWebSocketImplementation } from "snstr";
+import { resetWebSocketImplementation } from 'snstr';
 
 resetWebSocketImplementation();
 ```
@@ -681,3 +671,43 @@ SNSTR implements robust security features throughout the codebase:
 
 For details on security considerations for specific NIPs, see the documentation in each implementation folder.
 
+## NIP-155 Mobile Signing (Minimal Demo)
+
+Use SNSTR in a mobile signer to approve NIP-155 `sign_event` and `get_public_key` requests.
+
+```typescript
+// lib/nip155.ts parses requests and builds callbacks.
+// app/sign.tsx renders an approval screen and calls SNSTR.
+
+import { createEvent, getPublicKey, encodePublicKey, decode } from 'snstr';
+
+// Derive keys from stored nsec
+function privateKeyHex(nsec: string): string {
+  const decoded = decode(nsec as `${string}1${string}`);
+  if (decoded.type !== 'nsec' || typeof decoded.data !== 'string') throw new Error('bad nsec');
+  return decoded.data;
+}
+
+// Sign an incoming event JSON (from NIP-155 request)
+function signEventFromJson(nsec: string, json: string) {
+  const pk = privateKeyHex(nsec);
+  const candidate = JSON.parse(json);
+  const evt = createEvent({
+    kind: candidate.kind,
+    content: candidate.content,
+    tags: candidate.tags ?? [],
+    created_at: candidate.created_at ?? Math.floor(Date.now() / 1000),
+    privateKey: pk,
+  });
+  return { sig: evt.sig, event: evt };
+}
+
+// Return public key (and npub) for get_public_key
+function signerId(nsec: string) {
+  const pk = privateKeyHex(nsec);
+  const pub = getPublicKey(pk);
+  return { pub, npub: encodePublicKey(pub) };
+}
+```
+
+See the repository app for a complete working example wired to deep links.

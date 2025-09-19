@@ -1,24 +1,44 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-The Expo Router entry lives in `app/`, with `_layout.tsx` defining the root stack and `(tabs)/` supplying Home and Settings tabs. Shared TypeScript utilities belong in `lib/` (currently `keys.ts`), while long-form prompts or automations reside under `llm/` (`context/`, `workflows/`). Configuration files such as `app.json`, `babel.config.js`, and `tsconfig.json` sit at the repo root; keep new assets in `app/assets/` when introduced to preserve Expo conventions.
+
+- `app/` — Expo Router entry; `_layout.tsx` defines the root stack; `(tabs)/` supplies Home and Settings. Screens follow file‑route intent, e.g., `settings.tsx`, `profile/[id].tsx`.
+- `lib/` — shared TypeScript utilities (named exports). Includes SecureStore helpers and migrations; see `lib/keys.ts`.
+- `llm/` — long‑form prompts/automations under `context/` and `workflows/`.
+- Root configs: `app.json`, `babel.config.js`, `tsconfig.json`. New assets go in `app/assets/`.
+- Tests (when added) live in `__tests__/` or beside components.
 
 ## Build, Test, and Development Commands
-Use pnpm via Corepack. Typical loops:
-- `pnpm dev` – launch Expo with cache reset for reliable hot reload.
-- `pnpm start` / `pnpm ios` / `pnpm android` – target specific platforms.
-- `pnpm typecheck` – run `tsc --noEmit` to block type regressions.
-- `pnpm format` – apply Prettier to the entire tree (supports staged files when paired with lint-staged).
-- `pnpm run doctor` + `pnpm run fix` – validate and realign Expo dependency versions.
+
+- Use Corepack with pnpm.
+- `pnpm dev` — launch Expo with cache reset for reliable hot reload.
+- `pnpm start` / `pnpm ios` / `pnpm android` — run the app per platform.
+- `pnpm typecheck` — run `tsc --noEmit` to block type regressions.
+- `pnpm format` — apply Prettier to the entire tree.
+- `pnpm run doctor` + `pnpm run fix` — validate and realign Expo dependency versions.
 
 ## Coding Style & Naming Conventions
-Follow strict TypeScript with functional React components. Use Prettier defaults (2-space indentation, single quotes disabled in JSX). Export shared helpers as named exports from `lib/`. File-route names in `app/` should mirror screen intent (`settings.tsx`, `profile/[id].tsx`). Prefer snake_case for filesystem keys stored via SecureStore and camelCase for runtime variables.
+
+- Strict TypeScript; functional React components.
+- Prettier defaults (2‑space indent; `jsxSingleQuote: false`).
+- Runtime variables use camelCase; SecureStore keys use snake_case.
+- Export shared helpers as named exports from `lib/`.
+- File‑route names mirror screen intent and URL segments.
 
 ## Testing Guidelines
-No automated tests ship yet. When adding them, install Jest Expo (`pnpm add -D jest-expo @testing-library/react-native`) and place specs in `__tests__/` or alongside components with `.test.tsx` suffix. Keep describe blocks matching the screen or hook name and assert signer flows (key generation, secure store round-trip). Run suites with `pnpm exec jest` once configured; target meaningful coverage on signer logic before expanding to UI snapshots.
+
+- Add tooling with: `pnpm add -D jest-expo @testing-library/react-native`.
+- Name tests as `<name>.test.tsx`; place in `__tests__/` or alongside components.
+- Describe blocks match the screen/hook name; cover signer flows (key generation, SecureStore round‑trip).
+- Run suites with `pnpm exec jest`; keep `pnpm typecheck` green before pushing.
 
 ## Commit & Pull Request Guidelines
-Existing history uses a short, lowercase summary (`first commit`). Continue with present-tense, 72-character subject lines, optionally prefixed by scope (`fix:`, `feat:`) for clarity. Keep commits focused on one concern. Pull requests should link issues when available, describe user-visible behavior (screenshots for UI tweaks), and note how you validated changes (commands, device targets). Request review before merging to main.
 
-## Expo Environment Tips
-Set platform credentials via Expo Application Services outside the repo; never commit secrets. Use `.env` (excluded via `.gitignore`) for API keys and reference them with `expo-constants`. When secure storage schema changes, bump a migration helper in `lib/` to keep existing installs stable.
+- Commits: short, present‑tense, ≤72 chars; optional scope prefix (`feat:`, `fix:`).
+- PRs: link issues, describe user‑visible changes, include screenshots for UI tweaks, and note validation (commands run, device targets). Request review before merging to `main`.
+
+## Security & Configuration Tips
+
+- Never commit secrets; manage platform credentials via EAS.
+- Use `.env` (gitignored) and access via `expo-constants`.
+- When SecureStore schema changes, bump a migration helper in `lib/` to keep existing installs stable.
