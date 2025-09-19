@@ -1,15 +1,25 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "allowJs": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "target": "ES2021",
     "module": "esnext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
     "lib": [
+      "DOM",
       "ES2021"
     ],
     "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "customConditions": [
+      "react-native"
+    ],
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "types": [
       "expo-router/types"
