@@ -11,7 +11,9 @@ import {
   isNip155Url,
   openUrl,
   parseNip155Url,
+  type Nip155ErrorCode,
   type Nip155Request,
+  type ReturnType,
 } from '@/lib/nip155';
 import {
   createEvent,
@@ -33,10 +35,12 @@ type EventLike = {
   created_at?: number;
 };
 
+type PreviewSection = { label: string; value: string };
+
 export default function Nip155SignScreen() {
   const { u } = useLocalSearchParams<{ u?: string }>();
   const [req, setReq] = React.useState<Nip155Request | null>(null);
-  const [previews, setPreviews] = React.useState<Array<{ label: string; value: string }>>([]);
+  const [previews, setPreviews] = React.useState<PreviewSection[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
@@ -53,28 +57,9 @@ export default function Nip155SignScreen() {
       }
       const parsed = parseNip155Url(raw);
       setReq(parsed);
-      const sections: Array<{ label: string; value: string }> = [];
-      if (parsed.type === 'sign_event' && parsed.eventJSON) {
-        sections.push({ label: 'Event', value: safeDecodeAndFormat(parsed.eventJSON, pretty) });
-      }
-      if (parsed.type === 'nip04_encrypt' && parsed.plaintext) {
-        sections.push({ label: 'Plaintext', value: safeDecode(parsed.plaintext) });
-      }
-      if (parsed.type === 'nip04_decrypt' && parsed.encryptedText) {
-        sections.push({ label: 'Ciphertext', value: safeDecode(parsed.encryptedText) });
-      }
-      if (parsed.type === 'nip44_encrypt' && parsed.plaintext) {
-        sections.push({ label: 'Plaintext', value: safeDecode(parsed.plaintext) });
-      }
-      if (parsed.type === 'nip44_decrypt' && parsed.encryptedText) {
-        sections.push({ label: 'Ciphertext', value: safeDecode(parsed.encryptedText) });
-      }
-      if (parsed.pubkey) {
-        sections.push({ label: 'Counterparty Pubkey', value: parsed.pubkey });
-      }
-      setPreviews(sections);
-    } catch (e) {
-      setError('Failed to parse request URL.');
+      setPreviews(buildPreviewSections(parsed));
+    } catch (error) {
+      setError(friendlyMessage(error, 'Failed to parse request URL.'));
     }
   }, [u]);
 
@@ -99,18 +84,24 @@ export default function Nip155SignScreen() {
       const privHex = ensurePrivHex(nsec);
       const pubHex = getPublicKey(privHex);
 
-      // If the client provided current_user and it mismatches our pubkey, surface as permission error.
       if (req.currentUser && req.currentUser.toLowerCase() !== pubHex.toLowerCase()) {
         const url = buildErrorUrl(req, 'permission_denied', 'current_user mismatch');
         if (url) await openUrl(url);
         return;
       }
 
+      const sendSuccess = async (message: string, params: Record<string, string>) => {
+        const success = buildSuccessUrl(req, params);
+        await openUrl(success);
+        setReq(null);
+        setPreviews([]);
+        setStatus(message);
+      };
+
       switch (req.type) {
         case 'get_public_key': {
           const npub = encodePublicKey(pubHex);
-          const success = buildSuccessUrl(req, { pubkey: pubHex, npub });
-          await openUrl(success);
+          await sendSuccess('Shared public key with caller.', { pubkey: pubHex, npub });
           break;
         }
         case 'sign_event': {
@@ -133,77 +124,45 @@ export default function Nip155SignScreen() {
           const sig = await signEvent(id, privHex);
           const signed = { ...event, id, sig };
           const eventJson = JSON.stringify(signed);
-          const key = pickReturnKey(req, 'event');
+          const key = pickReturnKey(req, 'event', ['event', 'signature']);
           const value = key === 'event' ? eventJson : sig;
-          const success = buildSuccessUrl(req, { [key]: value });
-          await openUrl(success);
-          setReq(null);
-          setPreviews([]);
-          setStatus('Signed event dispatched to callback.');
+          await sendSuccess('Signed event dispatched to callback.', { [key]: value });
           break;
         }
         case 'nip04_encrypt': {
-          if (req.returnType && req.returnType !== 'ciphertext') {
-            throw new Error('invalid_request: returnType must be ciphertext for nip04_encrypt');
-          }
           if (!req.plaintext) throw new Error('invalid_request: missing plaintext');
           if (!req.pubkey) throw new Error('invalid_request: missing pubkey');
           const plaintext = safeDecode(req.plaintext);
           const ciphertext = encryptNIP04(privHex, req.pubkey, plaintext);
-          const key = pickReturnKey(req, 'result');
-          const success = buildSuccessUrl(req, { [key]: ciphertext });
-          await openUrl(success);
-          setReq(null);
-          setPreviews([]);
-          setStatus('Encrypted message dispatched.');
+          const key = pickReturnKey(req, 'ciphertext', ['ciphertext']);
+          await sendSuccess('Encrypted message dispatched.', { [key]: ciphertext });
           break;
         }
         case 'nip04_decrypt': {
-          if (req.returnType && req.returnType !== 'plaintext') {
-            throw new Error('invalid_request: returnType must be plaintext for nip04_decrypt');
-          }
           if (!req.encryptedText) throw new Error('invalid_request: missing encryptedText');
           if (!req.pubkey) throw new Error('invalid_request: missing pubkey');
           const encrypted = safeDecode(req.encryptedText);
           const plaintext = decryptNIP04(privHex, req.pubkey, encrypted);
-          const key = pickReturnKey(req, 'result');
-          const success = buildSuccessUrl(req, { [key]: plaintext });
-          await openUrl(success);
-          setReq(null);
-          setPreviews([]);
-          setStatus('Decrypted message dispatched.');
+          const key = pickReturnKey(req, 'plaintext', ['plaintext']);
+          await sendSuccess('Decrypted message dispatched.', { [key]: plaintext });
           break;
         }
         case 'nip44_encrypt': {
-          if (req.returnType && req.returnType !== 'ciphertext') {
-            throw new Error('invalid_request: returnType must be ciphertext for nip44_encrypt');
-          }
           if (!req.plaintext) throw new Error('invalid_request: missing plaintext');
           if (!req.pubkey) throw new Error('invalid_request: missing pubkey');
           const plaintext = safeDecode(req.plaintext);
           const ciphertext = encryptNIP44(plaintext, privHex, req.pubkey);
-          const key = pickReturnKey(req, 'result');
-          const success = buildSuccessUrl(req, { [key]: ciphertext });
-          await openUrl(success);
-          setReq(null);
-          setPreviews([]);
-          setStatus('NIP-44 encryption dispatched.');
+          const key = pickReturnKey(req, 'ciphertext', ['ciphertext']);
+          await sendSuccess('NIP-44 encryption dispatched.', { [key]: ciphertext });
           break;
         }
         case 'nip44_decrypt': {
-          if (req.returnType && req.returnType !== 'plaintext') {
-            throw new Error('invalid_request: returnType must be plaintext for nip44_decrypt');
-          }
           if (!req.encryptedText) throw new Error('invalid_request: missing encryptedText');
           if (!req.pubkey) throw new Error('invalid_request: missing pubkey');
           const encrypted = safeDecode(req.encryptedText);
           const plaintext = decryptNIP44(encrypted, privHex, req.pubkey);
-          const key = pickReturnKey(req, 'result');
-          const success = buildSuccessUrl(req, { [key]: plaintext });
-          await openUrl(success);
-          setReq(null);
-          setPreviews([]);
-          setStatus('NIP-44 decryption dispatched.');
+          const key = pickReturnKey(req, 'plaintext', ['plaintext']);
+          await sendSuccess('NIP-44 decryption dispatched.', { [key]: plaintext });
           break;
         }
         default: {
@@ -211,11 +170,11 @@ export default function Nip155SignScreen() {
           if (url) await openUrl(url);
         }
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'internal_error';
-      setError(message);
+    } catch (error) {
+      const details = normalizeError(error);
+      setError(friendlyMessage(error, details.reason));
       if (req) {
-        const url = buildErrorUrl(req, 'internal_error', message);
+        const url = buildErrorUrl(req, details.code, details.reason);
         if (url) await openUrl(url);
       }
     } finally {
@@ -280,8 +239,32 @@ function safeDecodeAndFormat(value: string, formatter: (input: string) => string
   return formatter(safeDecode(value));
 }
 
-function pickReturnKey(req: Nip155Request, fallback: string): string {
-  switch (req.returnType) {
+function buildPreviewSections(req: Nip155Request): PreviewSection[] {
+  const sections: PreviewSection[] = [];
+  if (req.eventJSON) {
+    sections.push({ label: 'Event', value: safeDecodeAndFormat(req.eventJSON, pretty) });
+  }
+  if (req.plaintext) {
+    sections.push({ label: 'Plaintext', value: safeDecode(req.plaintext) });
+  }
+  if (req.encryptedText) {
+    sections.push({ label: 'Ciphertext', value: safeDecode(req.encryptedText) });
+  }
+  if (req.pubkey) {
+    sections.push({ label: 'Counterparty Pubkey', value: req.pubkey });
+  }
+  return sections;
+}
+
+function pickReturnKey(req: Nip155Request, fallback: string, allowed?: ReturnType[]): string {
+  const { returnType } = req;
+  if (!returnType) {
+    return fallback;
+  }
+  if (allowed && !allowed.includes(returnType)) {
+    throw new Error(`invalid_request: returnType must be ${allowed.join(' or ')}`);
+  }
+  switch (returnType) {
     case 'event':
       return 'event';
     case 'signature':
@@ -292,6 +275,46 @@ function pickReturnKey(req: Nip155Request, fallback: string): string {
       return 'plaintext';
     default:
       return fallback;
+  }
+}
+
+const ERROR_CODES: Nip155ErrorCode[] = [
+  'user_cancelled',
+  'permission_denied',
+  'invalid_request',
+  'unsupported_method',
+  'payload_too_large',
+  'not_logged_in',
+  'rate_limited',
+  'internal_error',
+];
+
+function normalizeError(error: unknown): { code: Nip155ErrorCode; reason: string } {
+  if (error instanceof Error) {
+    const [codePart, detail] = error.message.split(':', 2).map((part) => part.trim());
+    if (codePart && (ERROR_CODES as ReadonlyArray<string>).includes(codePart)) {
+      return { code: codePart as Nip155ErrorCode, reason: detail || codePart };
+    }
+    return { code: 'internal_error', reason: error.message };
+  }
+  return { code: 'internal_error', reason: 'Unexpected error' };
+}
+
+function friendlyMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+  const [code, detail] = error.message.split(':', 2).map((part) => part.trim());
+  if (!code) return fallback;
+  switch (code) {
+    case 'invalid_request':
+      return detail ? `Invalid request: ${detail}` : 'Invalid request.';
+    case 'unsupported_method':
+      return detail ? `Unsupported method: ${detail}` : 'Unsupported method.';
+    case 'payload_too_large':
+      return detail ? `Payload too large: ${detail}` : 'Payload too large for this demo.';
+    default:
+      return error.message;
   }
 }
 

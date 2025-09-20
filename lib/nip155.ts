@@ -2,32 +2,22 @@ import * as Linking from 'expo-linking';
 
 import { emitCallback } from './callbacks';
 
-// Simple, minimal NIP-155 request representation for this demo
-export type Nip155Method =
-  | 'get_public_key'
-  | 'sign_event'
-  | 'nip04_encrypt'
-  | 'nip04_decrypt'
-  | 'nip44_encrypt'
-  | 'nip44_decrypt'
-  | 'decrypt_zap_event';
+const METHODS = [
+  'get_public_key',
+  'sign_event',
+  'nip04_encrypt',
+  'nip04_decrypt',
+  'nip44_encrypt',
+  'nip44_decrypt',
+  'decrypt_zap_event',
+] as const;
 
-const SUPPORTED_METHODS: Record<string, Nip155Method> = {
-  get_public_key: 'get_public_key',
-  sign_event: 'sign_event',
-  nip04_encrypt: 'nip04_encrypt',
-  nip04_decrypt: 'nip04_decrypt',
-  nip44_encrypt: 'nip44_encrypt',
-  nip44_decrypt: 'nip44_decrypt',
-  decrypt_zap_event: 'decrypt_zap_event',
-};
+export type Nip155Method = (typeof METHODS)[number];
 
-function isSupportedMethod(value: string): value is Nip155Method {
-  return value in SUPPORTED_METHODS;
-}
+const METHOD_SET = new Set<string>(METHODS);
+const KNOWN_SCHEMES = new Set(['nostrsigner', 'nip55-ios-test']);
 
 export type ReturnType = 'signature' | 'event' | 'ciphertext' | 'plaintext';
-
 export type CompressionType = 'none' | 'gzip';
 
 export type Nip155Request = {
@@ -36,15 +26,13 @@ export type Nip155Request = {
   xSuccess?: string;
   xError?: string;
   xCancel?: string;
-  currentUser?: string; // hex pubkey from client
+  currentUser?: string;
   returnType?: ReturnType;
-  compressionType?: CompressionType; // only 'none' supported here; 'gzip' rejected
-  // payloads (at most one relevant per method)
-  eventJSON?: string; // url-encoded JSON string per spec
+  compressionType?: CompressionType;
+  eventJSON?: string;
   plaintext?: string;
   encryptedText?: string;
-  pubkey?: string; // hex
-  // raw for diagnostics
+  pubkey?: string;
   rawUrl: string;
 };
 
@@ -58,87 +46,109 @@ export type Nip155ErrorCode =
   | 'rate_limited'
   | 'internal_error';
 
+const DESCRIPTIONS: Record<Nip155Method, string> = {
+  get_public_key: 'Request: get_public_key (return pubkey for current account)',
+  sign_event: 'Request: sign_event (sign the provided event JSON)',
+  nip04_encrypt: 'Request: nip04_encrypt (encrypt a message with shared secret)',
+  nip04_decrypt: 'Request: nip04_decrypt (decrypt a message with shared secret)',
+  nip44_encrypt: 'Request: nip44_encrypt (encrypt a message using NIP-44)',
+  nip44_decrypt: 'Request: nip44_decrypt (decrypt a message using NIP-44)',
+  decrypt_zap_event: 'Request: decrypt_zap_event (decrypt a zap event)',
+};
+
+const RETURN_TYPES = new Set<ReturnType>(['signature', 'event', 'ciphertext', 'plaintext']);
+
+function getHost(parsed: Record<string, unknown>): string {
+  const value = parsed.host ?? (parsed as Record<string, unknown>).hostname;
+  return typeof value === 'string' ? value : '';
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function pickType(parsed: Record<string, unknown>): string {
+  const qp = (parsed.queryParams ?? {}) as Record<string, unknown>;
+  const fromQuery = asString((qp as Record<string, unknown>).type);
+  const fromPath = asString(parsed.path as string | undefined);
+  return (fromQuery || fromPath || '').replace(/^\/+/, '');
+}
+
 export function isNip155Url(url: string): boolean {
-  // Accept generic and app-specific scheme for this demo
   if (!url) return false;
   try {
-    const parsed = Linking.parse(url);
-    const scheme = parsed.scheme || '';
-    const host = ((parsed as any).host || (parsed as any).hostname || '') as string;
-    const path = parsed.path || '';
-    const method = (parsed.queryParams?.type || '') as string;
-    if (!scheme) return false;
-    if (host === 'debug' || path.startsWith('debug/')) {
+    const parsed = Linking.parse(url) as Record<string, unknown>;
+    const scheme = (parsed.scheme as string | undefined) ?? '';
+    const host = getHost(parsed);
+    const path = asString(parsed.path) ?? '';
+    if (!scheme || host === 'debug' || path.startsWith('debug/')) {
       return false;
     }
-    if (scheme === 'nostrsigner' || scheme === 'nip55-ios-test') {
+    if (KNOWN_SCHEMES.has(scheme)) {
       return true;
     }
     if (scheme === 'exp') {
-      const candidate = method || path;
-      return candidate ? isSupportedMethod(candidate) : false;
+      const candidate = pickType(parsed);
+      return candidate ? METHOD_SET.has(candidate) : false;
     }
     return false;
-  } catch (err) {
-    console.warn('isNip155Url parse error', url, err);
+  } catch (error) {
+    console.warn('isNip155Url parse error', { url, error });
     return false;
   }
 }
 
 export function parseNip155Url(url: string): Nip155Request {
-  const parsed = Linking.parse(url);
-  // Linking.parse returns object with path and queryParams
+  const parsed = Linking.parse(url) as Record<string, unknown>;
   const qp = (parsed.queryParams ?? {}) as Record<string, unknown>;
-  // Normalize access
-  const get = (k: string) => (qp[k] ?? undefined) as string | undefined;
 
-  const rawType = (get('type') || parsed.path || '').trim();
-  const type = rawType as Nip155Method;
+  const rawType = pickType(parsed);
   if (!rawType) {
     throw new Error('invalid_request: missing type');
   }
-  if (!isSupportedMethod(rawType)) {
-    return {
-      type: 'unsupported_method' as Nip155Method,
-      rawUrl: url,
-    } as Nip155Request;
+  if (!METHOD_SET.has(rawType)) {
+    throw new Error(`unsupported_method: ${rawType}`);
   }
 
-  const compressionType = (get('compressionType') as CompressionType | undefined) || 'none';
+  const compressionType = (asString(qp.compressionType) as CompressionType | undefined) || 'none';
   if (compressionType !== 'none') {
-    // Keep it simple for now; surface a clear message for the UI
     throw new Error('payload_too_large: compressionType not supported in this demo');
   }
 
   const req: Nip155Request = {
-    type,
-    id: get('id'),
-    xSuccess: get('x-success') || get('xSuccess') || undefined,
-    xError: get('x-error') || get('xError') || undefined,
-    xCancel: get('x-cancel') || get('xCancel') || undefined,
-    currentUser: get('current_user') || undefined,
-    returnType: (get('returnType') as ReturnType | undefined) || undefined,
+    type: rawType as Nip155Method,
+    id: asString(qp.id),
+    xSuccess: asString(qp['x-success'] ?? (qp as any).xSuccess),
+    xError: asString(qp['x-error'] ?? (qp as any).xError),
+    xCancel: asString(qp['x-cancel'] ?? (qp as any).xCancel),
+    currentUser: asString(qp.current_user ?? (qp as any).currentUser),
+    returnType: (asString(qp.returnType) as ReturnType | undefined) || undefined,
     compressionType,
-    eventJSON: get('event') || undefined,
-    plaintext: get('plaintext') || undefined,
-    encryptedText: get('encryptedText') || undefined,
-    pubkey: get('pubkey') || undefined,
+    eventJSON: asString(qp.event),
+    plaintext: asString(qp.plaintext),
+    encryptedText: asString(qp.encryptedText),
+    pubkey: asString(qp.pubkey),
     rawUrl: url,
   };
+
+  if (req.returnType && !RETURN_TYPES.has(req.returnType)) {
+    throw new Error(`invalid_request: unsupported returnType ${req.returnType}`);
+  }
 
   return req;
 }
 
 export function buildSuccessUrl(req: Nip155Request, params: Record<string, string>): string {
   if (!req.xSuccess) throw new Error('No x-success provided');
-  const base = req.xSuccess;
   const usp = new URLSearchParams();
-  if (req.id) usp.set('id', String(req.id));
-  for (const [k, v] of Object.entries(params)) {
-    if (v != null) usp.set(k, v);
+  if (req.id) usp.set('id', req.id);
+  for (const [key, value] of Object.entries(params)) {
+    if (value != null) {
+      usp.set(key, value);
+    }
   }
-  const join = base.includes('?') ? '&' : '?';
-  return `${base}${join}${usp.toString()}`;
+  const glue = req.xSuccess.includes('?') ? '&' : '?';
+  return `${req.xSuccess}${glue}${usp.toString()}`;
 }
 
 export function buildErrorUrl(
@@ -151,44 +161,23 @@ export function buildErrorUrl(
   const usp = new URLSearchParams();
   usp.set('code', code);
   usp.set('reason', reason);
-  if (req.id) usp.set('id', String(req.id));
-  const join = base.includes('?') ? '&' : '?';
-  return `${base}${join}${usp.toString()}`;
+  if (req.id) usp.set('id', req.id);
+  const glue = base.includes('?') ? '&' : '?';
+  return `${base}${glue}${usp.toString()}`;
 }
 
 export async function openUrl(url: string): Promise<void> {
-  console.log('[NIP155] dispatch callback', url);
   try {
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      console.log('[NIP155] native openURL', url);
+    if (await Linking.canOpenURL(url)) {
       await Linking.openURL(url);
       return;
     }
-  } catch (err) {
-    console.warn('Failed to open callback URL', url, err);
+  } catch (error) {
+    console.warn('Failed to open callback URL', { url, error });
   }
-  console.log('[NIP155] emit fallback', url);
   emitCallback(url);
 }
 
 export function describeRequest(req: Nip155Request): string {
-  switch (req.type) {
-    case 'get_public_key':
-      return 'Request: get_public_key (return pubkey for current account)';
-    case 'sign_event':
-      return 'Request: sign_event (sign the provided event JSON)';
-    case 'nip04_encrypt':
-      return 'Request: nip04_encrypt (encrypt a message with shared secret)';
-    case 'nip04_decrypt':
-      return 'Request: nip04_decrypt (decrypt a message with shared secret)';
-    case 'nip44_encrypt':
-      return 'Request: nip44_encrypt (encrypt a message using NIP-44)';
-    case 'nip44_decrypt':
-      return 'Request: nip44_decrypt (decrypt a message using NIP-44)';
-    case 'decrypt_zap_event':
-      return 'Request: decrypt_zap_event (decrypt a zap event)';
-    default:
-      return 'Unknown request';
-  }
+  return DESCRIPTIONS[req.type];
 }

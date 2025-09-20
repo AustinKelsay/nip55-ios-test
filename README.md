@@ -70,54 +70,33 @@ The dev server opens a QR for Expo Go; or launch iOS/Android simulators with the
 - If versions drift later: `pnpm run fix` then `pnpm run doctor`.
 - Add icons/splash later via `expo-assets` or the Expo tools; this starter keeps them minimal.
 
-## NIP-155 demo flow
+## NIP-155 draft demo
 
-This starter doubles as a **minimal iOS NIP-155 signer** built with SNSTR. It demonstrates:
+Alongside the starter, this repo hosts the working draft in `llm/context/nostr/NIP155.md` and a companion signer UI that exercises it. The goal is to keep the code easy to audit while proving the end-to-end handshake works on iOS.
 
-- `get_public_key` and `sign_event` end-to-end, including signature derivation that ignores caller-supplied `pubkey` and reuses the locally stored key (per the security note in Appendix B of the draft spec).
-- `nip04_encrypt` / `nip04_decrypt` and `nip44_encrypt` / `nip44_decrypt` handling for round-trip message tests.
-- Callback handling for real builds (`x-success`, `x-error`) and an Expo Go-friendly fallback that surfaces results in-app (`app/debug/success.tsx`, `app/debug/error.tsx`).
-- Spec-compliant error responses: `user_cancelled`, `permission_denied`, `not_logged_in`, `unsupported_method`, etc.
+### Supported surface
 
-### Running the demo
+- `get_public_key` — returns the local pubkey/npub pair.
+- `sign_event` — canonicalizes + signs caller-supplied events.
+- `nip04_encrypt` / `nip04_decrypt` and `nip44_encrypt` / `nip44_decrypt` for symmetric tests.
+- `decrypt_zap_event` wiring is stubbed via the same parser so callers can observe error handling.
 
-1. Launch the dev server: `pnpm dev` (Expo SDK 54).
-2. Open Expo Go or a simulator and load the project.
-3. In the Home tab:
-   - Paste an `nsec1…` or tap **Generate nsec**. We use SNSTR’s `generateKeypair` + `encodePrivateKey`.
-   - Tap **Save** to persist the signer (stores `nsec` in `expo-secure-store`). The screen shows the derived `npub` and raw pubkey.
-4. Tap **Test NIP-155 request**:
-   - The app fires a local deep link (`nip55-ios-test://sign_event?...`).
-   - The `app/_layout.tsx` handler routes the request into `/sign` for approval.
-   - Approving signs the event with SNSTR (`getEventHash` + `signEvent`) and dispatches the `x-success` callback.
-   - Inside Expo Go, the OS can’t open `nip55-ios-test://` callbacks, so `lib/nip155.ts` emits a fallback event that routes to `/debug/success`, where we decode and render the signed payload.
-   - On a custom dev/production build (where the scheme is registered with iOS), the OS opens the callback URL directly; we still parse it so the debug screen shows the result.
-5. Optional: trigger the Settings tab’s **Reset signer** to clear the stored `nsec` (useful for testing `not_logged_in`).
+The parser accepts both `nostrsigner://` and the app-specific `nip55-ios-test://` scheme, validates x-callback parameters, and rejects unsupported compression with a clear error.
 
-### Deep link highlights
+### Try the flow
 
-- Schemes: `nostrsigner://` (spec) and `nip55-ios-test://` (app-specific). Router logic accepts both and ignores the signer’s own debug callbacks.
-- For `sign_event`, we always re-derive the signer’s pubkey before hashing/signing. The incoming payload’s `pubkey` field is treated as untrusted data.
-- `returnType` is honored: `signature`, `event`, `ciphertext`, or `plaintext`. Unsupported combinations are rejected with `invalid_request`.
-- Compression: we only accept `compressionType=none` in this demo; callbacks return an error if `gzip` is requested.
+1. `pnpm dev` then open the project in Expo Go or a simulator.
+2. On **Home** (`app/(tabs)/index.tsx`), generate or paste an `nsec`, then **Save**. The app stores it in SecureStore and shows the derived `npub` + hex pubkey.
+3. Tap **Test NIP-155 request**. This launches a local deep link that resolves to `/sign`.
+4. Review the payload in `/sign` (`app/sign.tsx`). Approve to dispatch the callback URL; reject to see the spec error path.
+5. In Expo Go, callbacks fall back to `/debug/success` or `/debug/error` so you can inspect the query params. In a native build, iOS would open the caller’s scheme directly.
 
-### Files of interest
+### Code map
 
-- `app/_layout.tsx` – deep-link intake, callback routing (dev fallback + real schemes).
-- `app/sign.tsx` – approval UI + SNSTR signing/encryption logic.
-- `lib/nip155.ts` – request parser, validation, callback dispatcher.
-- `lib/callbacks.ts` – simple event bus for environments that can’t open custom schemes.
-- `app/debug/success.tsx` / `app/debug/error.tsx` – show decoded callback payloads to confirm flows while developing.
-
-### Install helper deps (already in `package.json`)
-
-If you clone this repo without `node_modules`, install the dependencies used by the signer:
-
-```sh
-pnpm exec expo install expo-secure-store expo-linking expo-clipboard
-pnpm add snstr
-pnpm dev
-```
+- `lib/nip155.ts` — small helpers: request detection, parsing, callback URL builders.
+- `app/_layout.tsx` — central deep-link intake and callback subscription.
+- `app/sign.tsx` — simplified approval surface using SNSTR crypto helpers.
+- `app/debug/*` — renders callback payloads when iOS cannot hand control back.
 
 ## Next steps (optional)
 
